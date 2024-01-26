@@ -128,10 +128,7 @@ chrome.tabs.onRemoved.addListener(async (tabId, removeInfo) => {
 	if (i === -1) {
 		return false
 	}
-	for (let j = i; j < history.length - 1; j++) {
-		history[j] = history[j + 1]
-	}
-	history.pop()
+	history.splice(i, 1)
 	// Try go back to the last tab in the history to override the default behavior in Chrome
 	// Not a good experience when we were unloaded
 	// const lastTabId = history[0]
