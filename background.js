@@ -4,11 +4,38 @@ const STORAGE_KEY = 'tabs-history'
 
 /** @typedef {{[windowId: number]: number[]}} TabHistory */
 
+async function getCurrentTabs() {
+	/** @type {TabHistory}  */
+	const tabs = {}
+	for (const window of await chrome.windows.getAll()) {
+		if (!window.id) {
+			continue
+		}
+		const windowTabs = []
+		for (const tab of await chrome.tabs.query({ windowId: window.id })) {
+			if (tab.id) {
+				windowTabs.push(tab.id)
+			}
+		}
+		tabs[window.id] = windowTabs
+	}
+	return tabs
+}
+
+async function getDefaultHistory() {
+	const history = await getCurrentTabs()
+	const activeTab = (await chrome.tabs.query({ active: true }))[0]
+	if (activeTab) {
+		shiftItemToFront(history[activeTab.windowId], activeTab.id)
+	}
+	return history
+}
+
 /** @type {TabHistory}  */
 let tabHistoryCache
 const initTabHistory = (async () => {
 	const stored = await chrome.storage.session.get(STORAGE_KEY)
-	tabHistoryCache = stored[STORAGE_KEY] ?? {}
+	tabHistoryCache = stored[STORAGE_KEY] ?? (await getDefaultHistory())
 })()
 
 async function getTabHistory() {
