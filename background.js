@@ -40,33 +40,38 @@ async function setTabHistory(history) {
  * @template T
  * @param {T[]} array
  * @param {T} item
+ * @param {number} [index=0]
  */
-function shiftItemToFront(array, item) {
+function shiftItemToFront(array, item, index = 0) {
+	if (index > array.length - 1) {
+		return false
+	}
 	const i = array.indexOf(item)
 	if (i === -1) {
 		return false
 	}
-	for (let j = i; j > 0; j--) {
+	for (let j = i; j > index; j--) {
 		array[j] = array[j - 1]
 	}
-	array[0] = item
+	array[index] = item
 	return true
 }
 
 /**
  * @param {number} tabId
  * @param {number} windowId
+ * @param {number} [index=0]
  */
-async function bringTabToFront(tabId, windowId) {
+async function bringTabToFront(tabId, windowId, index = 0) {
 	const tabsHistory = await getTabHistory()
 	let history = tabsHistory[windowId]
 	if (!history) {
 		history = []
 		tabsHistory[windowId] = history
 	}
-	const tabInHistory = shiftItemToFront(history, tabId)
+	const tabInHistory = shiftItemToFront(history, tabId, index)
 	if (!tabInHistory) {
-		history.unshift(tabId)
+		history.splice(index, 0, tabId)
 	}
 	await setTabHistory(tabsHistory)
 }
@@ -75,7 +80,8 @@ chrome.tabs.onCreated.addListener(async (tab) => {
 	if (!tab.id) {
 		return
 	}
-	bringTabToFront(tab.id, tab.windowId)
+	// Move to the second
+	bringTabToFront(tab.id, tab.windowId, 1)
 })
 
 chrome.tabs.onActivated.addListener(async (activeInfo) => {
@@ -91,22 +97,20 @@ chrome.tabs.onRemoved.addListener(async (tabId, removeInfo) => {
 	if (!history) {
 		return
 	}
-	for (let i = 0; i < history.length; i++) {
-		if (history[i] === tabId) {
-			for (let j = i; j < history.length - 1; j++) {
-				history[j] = history[j + 1]
-			}
-			history.pop()
-
-			// Try go back to the last tab in the history to override the default behavior in Chrome
-			// Not a good experience when we were unloaded
-			// const lastTabId = history[0]
-			// if (lastTabId) {
-			// 	chrome.tabs.update(lastTabId, { active: true })
-			// }
-			// return
-		}
+	const i = history.indexOf(tabId)
+	if (i === -1) {
+		return false
 	}
+	for (let j = i; j < history.length - 1; j++) {
+		history[j] = history[j + 1]
+	}
+	history.pop()
+	// Try go back to the last tab in the history to override the default behavior in Chrome
+	// Not a good experience when we were unloaded
+	// const lastTabId = history[0]
+	// if (lastTabId) {
+	// 	chrome.tabs.update(lastTabId, { active: true })
+	// }
 	await setTabHistory(tabsHistory)
 })
 
